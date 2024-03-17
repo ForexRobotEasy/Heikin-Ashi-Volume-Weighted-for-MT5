@@ -1,0 +1,74 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                            Heikin Ashi Volume Weighted for MT5 |
+//|                                            Copyright 2022, Forex Robot Easy Team |
+//|                                            https://www.forexroboteasy.com |
+//+------------------------------------------------------------------+
+
+#property copyright 'Copyright 2022, Forex Robot Easy Team'
+#property link      'https://www.forexroboteasy.com'
+
+#property indicator_separate_window
+#property indicator_buffers 4
+#property indicator_color1 Lime
+#property indicator_color2 Red
+#property indicator_color3 DarkOrange
+#property indicator_color4 DarkOrange
+
+// input parameters
+input int period = 14; // period for calculating average volume
+input double multiplier = 1.5; // multiplier for adjusting trailing of highs and lows
+
+// buffers
+double UpBuffer[];
+double DownBuffer[];
+double MaxExcursionUpBuffer[];
+double MaxExcursionDownBuffer[];
+
+//+------------------------------------------------------------------+
+//| Custom indicator initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   // indicator buffers mapping
+   SetIndexBuffer(0, UpBuffer);
+   SetIndexBuffer(1, DownBuffer);
+   SetIndexBuffer(2, MaxExcursionUpBuffer);
+   SetIndexBuffer(3, MaxExcursionDownBuffer);
+
+   // set indicator labels
+   IndicatorSetString(INDICATOR_SHORTNAME, 'Heikin Ashi Volume Weighted');
+
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator calculation function                            |
+//+------------------------------------------------------------------+
+int OnCalculate(const int rates_total, const int prev_calculated, const datetime &time[], const double &open[], const double &high[], const double &low[], const double &close[], const long &tick_volume[], const long &volume[], const int &spread[])
+{
+   // calculate average volume
+   double avg_volume = iMAOnArray(volume, 0, period, 0, MODE_SMA, rates_total, prev_calculated);
+
+   // calculate Heikin Ashi candles
+   for (int i = prev_calculated; i < rates_total; i++)
+   {
+      // calculate Heikin Ashi values
+      double ha_close = (open[i] + high[i] + low[i] + close[i]) / 4;
+      double ha_open = (OpenBuffer[i-1] + CloseBuffer[i-1]) / 2;
+      double ha_high = MathMax(high[i], MathMax(ha_open, ha_close));
+      double ha_low = MathMin(low[i], MathMin(ha_open, ha_close));
+
+      // calculate volume weighted highs and lows
+      double vw_high = ha_high + (multiplier * (volume[i] / avg_volume));
+      double vw_low = ha_low - (multiplier * (volume[i] / avg_volume));
+
+      // store values in buffers
+      UpBuffer[i] = ha_open < ha_close ? ha_close : EMPTY_VALUE;
+      DownBuffer[i] = ha_open > ha_close ? ha_close : EMPTY_VALUE;
+      MaxExcursionUpBuffer[i] = vw_high;
+      MaxExcursionDownBuffer[i] = vw_low;
+   }
+
+   return(rates_total);
+}
